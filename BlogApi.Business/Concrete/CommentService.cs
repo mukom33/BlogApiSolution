@@ -5,20 +5,24 @@ using BlogApi.DataAccess.Abstract;
 using BlogApi.Business.Abstract;
 using System.Data;
 using Microsoft.AspNetCore.Http.HttpResults;
+using BlogApi.Business.Wrappers;
+using Microsoft.VisualBasic;
 
 namespace BlogApi.Business.Concrete
 {
     public class CommentService : ICommentService
     {
         private readonly IGenericRepository<Comment> _repository;
+        private readonly IGenericRepository<Post> _postRepository;
         private readonly IMapper _mapper;
-        public CommentService(IGenericRepository<Comment> repository,IMapper mapper)
+        public CommentService(IGenericRepository<Comment> repository,IMapper mapper,IGenericRepository<Post> postrepository)
         {
             _repository = repository;
             _mapper = mapper;
+            _postRepository = postrepository;
         }
 
-        public async Task<CommentDTO> GetCommentByIdAsync(int id)
+       /* public async Task<CommentDTO> GetCommentByIdAsync(int id)
         {
             var comment = await _repository.GetAsync(i => i.CommentId == id);
             if(comment == null)
@@ -28,129 +32,188 @@ namespace BlogApi.Business.Concrete
 
             return _mapper.Map<CommentDTO>(comment);    
         }
-
-        public async Task<bool> CreateAsync(int userId,CommentDTO request)
+*/
+        public async Task<ApiResponse<CommentDTO>> CreateAsync(int PostId,int userId,CommentDTO request)
         {
-            var commentcount = await _repository.CountAsync(c => 
-                c.PostId == request.PostId&&
-                c.AppUserId == userId);
-            if(commentcount >= 2)
+            try
             {
-                return false;
+                var postCount = await _postRepository.CountAsync(i => i.PostId == PostId);
+                bool exists = postCount >0;
+                if(!exists)
+                {
+                    return ApiResponse<CommentDTO>.FailResponse("Böyle bir Post yok");
+                }
+
+                var commentcount = await _repository.CountAsync(c => 
+                    c.PostId == PostId&&
+                    c.AppUserId == userId);
+
+                if(commentcount >= 2)
+                {
+                    return ApiResponse<CommentDTO>.FailResponse("Bir posta 2'den fazla yorum yapamazsınız");
+                }
+                
+                var comment = _mapper.Map<Comment>(request);
+                comment.CreatedAt = DateTime.UtcNow;
+                comment.AppUserId = userId;
+                comment.PostId = PostId;
+
+                await _repository.AddAsync(comment);
+                var result = await _repository.SaveAsync();
+
+                if (result == 0)
+                {
+                    return ApiResponse<CommentDTO>.FailResponse("işlem başarısız");
+                }
+                
+                var commentDto= _mapper.Map<CommentDTO>(comment);
+                
+                return ApiResponse<CommentDTO>.SuccessResponse(commentDto);
             }
+            catch(Exception ex)
+            {
+                return ApiResponse<CommentDTO>.FailResponse(ex.Message);
+            }
+
             
-            var comment = _mapper.Map<Comment>(request);
-            comment.CreatedAt = DateTime.UtcNow;
-            comment.AppUserId = userId;
-
-            await _repository.AddAsync(comment);
-            await _repository.SaveAsync();
-
-            return true;
         }
 
-        public async Task<bool> DeletedAsync(int id,int userId)
+        public async Task<ApiResponse<Comment>> DeletedAsync(int id,int userId)
         {
-            var comment = await _repository.GetAsync(i => i.CommentId == id);
-            if(comment == null)
+            
+            
+            var commentCount = await _repository.CountAsync(i => i.CommentId == id);
+
+            if(commentCount == 0)
             {
-                return false;
+                return ApiResponse<Comment>.FailResponse("Böyle bir yorum bulunamadı");
             }
+
+            var comment = await _repository.GetAsync(i => i.CommentId == id);
 
             if(comment.AppUserId != userId)
             {
-                throw new Exception("Delete yapmaya yetkiniz yoktur");
+                return ApiResponse<Comment>.FailResponse("Silme işlemini yapmaya yetkiniz yoktur.");
             }
+            try
+            {  
+                _repository.Remove(comment);
             
-            _repository.Remove(comment);
+                await _repository.SaveAsync();
+            }    
+           
+            catch (Exception ex)
+            {
+                return ApiResponse<Comment>.FailResponse(ex.Message);
+            }
+
+            return ApiResponse<Comment>.SuccessResponse(comment,"Silme işlemi başarılı");         
+        }
+
+        public async  Task<ApiResponse<PagedDTO<ListCommentDTO>>>GetPagedCommentsByPostId(int id,int page,int pageSize)
+        {
             try
             {
-                await _repository.SaveAsync();
+                var commentCount = await _postRepository.CountAsync(i => i.PostId == id);
+                bool existPost = commentCount>0;
+
+                if(!existPost)
+                {
+                    return ApiResponse<PagedDTO<ListCommentDTO>>.FailResponse("Böyle bir post bulunamadı");
+                }
+
+                var comment = await _repository.GetPagedAsync(
+                    page,
+                    pageSize,
+                    i => i.PostId == id,
+                    p => p.AppUser,
+                    p => p.Post
+                );
+
+                var commentResult = new PagedDTO<ListCommentDTO>
+                {
+                    Items = comment.Items.Select(p => new ListCommentDTO
+                    {
+                        UserName = p.AppUser.UserName,
+                        CreatedAt = p.CreatedAt,
+                        Text = p.Text,
+                        UserId = p.AppUserId,
+                        CommentId = p.CommentId
+                    }).ToList(),
+                    TotalCount = comment.TotalCount,
+                    Page = comment.Page,
+                    PageSize = comment.PageSize
+                };
+
+                return ApiResponse<PagedDTO<ListCommentDTO>>.SuccessResponse(commentResult,"İşlem Başarılı");
             }
-            catch (Exception)
+            catch(Exception ex)
             {
-                return false;
+                return ApiResponse<PagedDTO<ListCommentDTO>>.FailResponse(ex.Message);
             }
 
-            return true;
         }
 
-        public async Task<PagedDTO<CommentDTO>> GetPagedCommentsByPostId(int id, int page, int pageSize)
-        {
-            var comment = await _repository.GetPagedAsync(page,pageSize,i => i.PostId == id);
-
-            return new PagedDTO<CommentDTO>
-            {
-                Items = _mapper.Map<List<CommentDTO>>(comment.Items),
-                TotalCount = comment.TotalCount,
-                Page = comment.Page,
-                PageSize = comment.PageSize
-            };
-        }
-
-        public async Task<List<CommentDTO>> GetCommentsByPostId(int id)
+       /* public async Task<List<ListCommentDTO>> GetCommentsByPostId(int id)
         {
             var postbycomments = await _repository.GetListAsync(i => i.PostId == id);
             if(postbycomments == null)
             {
-                return new List<CommentDTO>();
+                return new List<ListCommentDTO>();
             }
 
-            var commentsDto = _mapper.Map<List<CommentDTO>>(postbycomments);
+            var commentsDto = postbycomments.Select(p => new ListCommentDTO
+            {
+                
+            });
             
             return commentsDto;
         }
+        */
 
-        public async Task<bool> UpdateAtAsync(int id, CommentDTO request,int userId)
+        public async Task<ApiResponse<CommentDTO>> UpdateAtAsync(int id, CommentDTO request,int userId)
         {
-            var comment = await _repository.GetAsync(i => i.CommentId == id);
-            if(comment == null)
-            {
-                return false;
-            }
-            if(comment.AppUserId != userId)
-            {
-                throw new Exception("UserId yanlış");
-            }
-
-            _mapper.Map(request,comment);
-            comment.UpdatedAt = DateTime.UtcNow;
             try
             {
-                await _repository.SaveAsync();
-            }
-            catch (Exception)
-            {
-                return false;
-            }
+                var commentCount = await _repository.CountAsync(i => i.CommentId == id);
+                bool exits = commentCount > 0;
 
-            return true;
-        }
+                if (!exits)
+                {
+                    return ApiResponse<CommentDTO>.FailResponse("Böyle bir Yorum bulunamadı");
+                }
 
-        public async Task<PagedDTO<CommentDTO>> GetPagedCommentsByUserId(int id, int page, int pageSize)
-        {
-            var comment = await _repository.GetPagedAsync(page,pageSize,i => i.AppUserId == id);
+                var comment = await _repository.GetAsync(i => i.CommentId == id);
+
+                if(comment == null)
+                {
+                    return ApiResponse<CommentDTO>.FailResponse("İşlem başarısız");
+                }
+
+                if(comment.AppUserId != userId)
+                {
+                    return ApiResponse<CommentDTO>.FailResponse("Bu yorumu Update etmeye yetkiniz yoktur");
+                }
+
+                _mapper.Map(request,comment);
+                comment.UpdatedAt = DateTime.UtcNow;
+                
+                var result =await _repository.SaveAsync();
+
+                if(result == 0)
+                {
+                    return ApiResponse<CommentDTO>.FailResponse("Güncelleme Başarısız");
+                }
             
-            return new PagedDTO<CommentDTO>
-            {
-                Items = _mapper.Map<IEnumerable<CommentDTO>>(comment.Items),
-                Page = comment.Page,
-                PageSize = comment.PageSize,
-                TotalCount = comment.TotalCount
-            };
-        }
+                var commentDto = _mapper.Map<CommentDTO>(comment);
 
-        public async Task<List<CommentDTO>> GetCommentsByUserId(int id)
-        {
-            var userbycomments = await _repository.GetListAsync(i => i.AppUserId == id);
-            if(userbycomments == null)
-            {
-                return new List<CommentDTO>();
+                return ApiResponse<CommentDTO>.SuccessResponse(commentDto,"Güncelleme Başarıyla Gerçekleşti");
             }
-            
-            var commentsDto = _mapper.Map<List<CommentDTO>>(userbycomments);
 
-            return commentsDto;
+            catch (Exception ex)
+            {
+                return ApiResponse<CommentDTO>.FailResponse(ex.Message);
+            }
         }
     }
 }

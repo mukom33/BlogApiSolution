@@ -1,4 +1,5 @@
 using BlogApi.Business.DTOs;
+using BlogApi.Business.Wrappers;
 using BlogApi.Domain.Entities;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -8,21 +9,17 @@ namespace BlogApi.Business.Abstract
     {
        
         
-        Task<PostDTO>GetPostByIdAsync(int id);
+         Task<ApiResponse<List<ListPostDTO>>> GetPostByIdAsync(int id);
         
         
-        Task<bool>UpdatePostAsync(int id,PostDTO dto,int userId);
-        Task<bool>DeletePostAsync(int id,int userId);
-        Task<bool>CreatePostAsync(int userId,PostDTO dto);
+        Task<ApiResponse<PostDTO>> UpdatePostAsync(int id, PostDTO dto,int userId);
+        Task<ApiResponse<Post>> DeletePostAsync(int id,int userId);
+        Task<ApiResponse<PostDTO>> CreatePostAsync(int userId, PostDTO request);
         
         
+        Task<ApiResponse<PagedDTO<ListPostDTO>>> GetPagedUserPosts(int id, int page, int pageSize);        Task<ApiResponse<PagedDTO<ListPostDTO>>>GetAllPosts(int page,int pageSize);
         
-        Task<PagedDTO<PostDTO>>GetPagedUserPosts(int id,int page,int pageSize);
-        Task<PagedDTO<PostDTO>>GetPagedTagPosts(int id,int page,int pageSize);
-        Task<PagedDTO<ListPostDTO>>GetAllPosts(int page,int pageSize);
-        
-        Task<List<PostDTO>>GetPostsByTagId(int id);
-        Task<List<PostDTO>>GetPostsByUserId(int id);
+        // Task<List<ListPostDTO>>GetPostsByUserId(int id);
 
     }
 }

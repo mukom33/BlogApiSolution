@@ -31,7 +31,7 @@ namespace BlogApi.DataAccess.Concrete
         public async Task<List<T>> GetListAsync(Expression<Func<T, bool>>? predicate,params Expression<Func<T, object>>[] includes)
         {
             var query = _dbset.AsQueryable();
-
+            
             if(predicate != null)
                 query = query.Where(predicate);
             if(includes != null)
@@ -65,10 +65,7 @@ namespace BlogApi.DataAccess.Concrete
             return  await _dbset.CountAsync(predicate);
         }
 
-        public Task<List<T>> GetListAsync(Expression<Func<T, bool>>? predicate)
-        {
-            throw new NotImplementedException();
-        }
+       
 
         public async Task<PagedResult<T>> GetPagedAsync(int page, int pageSize, Expression<Func<T, bool>>? filter = null, params Expression<Func<T, object>>[] includes)
         {

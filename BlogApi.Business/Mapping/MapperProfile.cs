@@ -14,6 +14,7 @@ namespace BlogApi.Business.Mapping
             CreateMap<Post,PostDTO>().ReverseMap();
             CreateMap<Comment,CommentDTO>().ReverseMap();
             CreateMap<PostLike,PostLikeDTO>().ReverseMap();
+            CreateMap(typeof(PagedResult<>), typeof(PagedDTO<>));        
         }
     }
 }

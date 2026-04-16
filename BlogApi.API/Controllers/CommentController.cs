@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using BlogApi.Business.Concrete;
+using BlogApi.Business.Wrappers;
 
 namespace BlogApi.API.Controllers
 {
@@ -23,7 +24,7 @@ namespace BlogApi.API.Controllers
             _ıdentityclaimService = ıdentityClaimService;
         }
 
-        [HttpGet("{id}")]
+       /* [HttpGet("{id}")]
         public async Task<IActionResult>GetCommentByIdAsync (int id )
         {
             var comment = await _commentService.GetCommentByIdAsync(id);
@@ -34,8 +35,8 @@ namespace BlogApi.API.Controllers
 
             return Ok(comment);
         }
-
-        [HttpGet("post/{id}/comments")]
+*/
+       /* [HttpGet("post/{id}")]
         public async Task<IActionResult>GetCommentsByPostId(int id)
         {
             var commentsbypostId = await _commentService.GetCommentsByPostId(id);
@@ -46,68 +47,52 @@ namespace BlogApi.API.Controllers
 
             return Ok(commentsbypostId);
         }
+        */
 
-        [HttpGet("posts/{id}/comments")]
-        public async Task<IActionResult>GetPagedCommentsByPostId(int id,[FromQuery]int pageSize = 10,[FromQuery]int page = 1)
+        [HttpGet("post/{postId}")]
+        public async Task<IActionResult>GetPagedCommentsByPostId(int postId,[FromQuery]int pageSize = 10,[FromQuery]int page = 1)
         {
-            var postcomments = await _commentService.GetPagedCommentsByPostId(id,page,pageSize);
-            if(postcomments == null)
+            var postcomments = await _commentService.GetPagedCommentsByPostId(postId,page,pageSize);
+            
+            if(!postcomments.Success)
             {
-                return NotFound();
+                return NotFound(postcomments);
             }
 
             return Ok(postcomments);
         }
 
-        [HttpGet("AppUsers/{id}/comments")]
-        public async Task<IActionResult>GetPagedCommentsByUserId(int id,[FromQuery]int pageSize = 10,[FromQuery]int page = 1)
-        {
-            var usercomments = await _commentService.GetPagedCommentsByUserId(id,page,pageSize);
-            if(usercomments == null)
-            {
-                return NotFound();
-            }
-            
-            return Ok(usercomments);
-        }
-
-        [HttpGet("AppUser/{id}/comments")]
-        public async Task<IActionResult>GetCommentsByUserId(int id)
-        {
-            var getcommentsbyuser = await _commentService.GetCommentsByUserId(id);
-            if(getcommentsbyuser == null)
-            {
-                return NotFound();
-            }
-
-            return Ok(getcommentsbyuser);
-        }
-
         [HttpPost]
-        public async Task<IActionResult>CreateComment(CommentDTO dto)
+        public async Task<IActionResult>CreateComment(int PostId,CommentDTO dto)
         {
             var userId = _ıdentityclaimService.FindUserId();
                 
-            var result = await _commentService.CreateAsync(userId,dto);
-            if(result == false)
+            var result = await _commentService.CreateAsync(PostId,userId,dto);
+            if(!result.Success)
             {
-                return NotFound("Bir kullanıcı 2 den fazla yorum yapamaz");
+                return NotFound(result);
             }
             
-            return StatusCode(201,"Yorum oluşturuldu");
+            return CreatedAtAction(nameof(CreateComment),result);
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult>UpdateComment(int id,CommentDTO dto)
         {
             var userId = _ıdentityclaimService.FindUserId();
-            var comment = await _commentService.UpdateAtAsync(id,dto,userId);
-            if(comment == false)
+            if(userId == null)
             {
-                return NotFound();
+                return BadRequest();
             }
-
-            return NoContent();
+            var comment = await _commentService.UpdateAtAsync(id,dto,userId);
+            if(!comment.Success)
+            {
+                return NotFound(comment);
+            }
+            else
+            {
+                return Ok(comment);
+            }
         }
 
         [HttpDelete("{id}")]
@@ -116,12 +101,12 @@ namespace BlogApi.API.Controllers
             var userId = _ıdentityclaimService.FindUserId();
 
             var comment = await _commentService.DeletedAsync(id,userId);
-            if(comment == false)
+            if(!comment.Success)
             {
-                return NotFound();
+                return NotFound(comment);
             }
 
-            return NoContent();
+            return Ok(comment);
         }
     }
 }

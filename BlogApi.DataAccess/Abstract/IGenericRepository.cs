@@ -14,7 +14,6 @@ namespace BlogApi.DataAccess.Abstract
         Task<PagedResult<T>> GetPagedAsync(int page, int pageSize, Expression<Func<T, bool>>? filter = null,params Expression<Func<T, object>>[] includes);
         Task<List<T>> GetListAsync(Expression<Func<T, bool>>? predicate,params Expression<Func<T, object>>[] includes);
         Task<int> CountAsync(Expression<Func<T, bool>> predicate);
-
-
+        
     }
 }

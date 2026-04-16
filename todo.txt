@@ -4,3 +4,15 @@
 1-) bir kişi günde sadece 5 posst atabilir
 2-) aynı makaleye sadece iki kez comment atılabilir
 3-) aynı post'a sadece 6 adet tag atılabilir
+
+Full api bittiğinde:
+
+1-) Response pattern
+2-) exception handling
+3-) Filters ve Middlewares
+4-)) SOLID
+
+-------
+-Extensionlar
+- Logging
+-delegate, lambda, expression mantığı

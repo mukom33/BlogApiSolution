@@ -5,6 +5,9 @@ using BlogApi.Business.Abstract;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using BlogApi.Business.Concrete;
+using BlogApi.Business.DTOs;
+using System.Reflection.Metadata.Ecma335;
+using BlogApi.Business.Wrappers;
 
 namespace BlogApi.API.Controllers
 {
@@ -20,7 +23,7 @@ namespace BlogApi.API.Controllers
             _ıdentityClaimService = ıdentityClaimService;
         }
 
-        [HttpGet("{id}")]
+       /* [HttpGet("{id}")]
         public async Task<IActionResult>GetPostLike(int id)
         {
             var postlike = await _postlikeService.GetPostLikeById(id);
@@ -31,8 +34,9 @@ namespace BlogApi.API.Controllers
 
             return Ok(postlike);
         }
+        */
 
-        [HttpGet("Post/{id}/postlikes")]
+       /* [HttpGet("Post/{id}/postlikes")]
         public async Task<IActionResult>GetPostLikeByPostId(int id)
         {
             var postlikebypostId = await _postlikeService.GetPostLikeByPostId(id);
@@ -43,20 +47,23 @@ namespace BlogApi.API.Controllers
 
             return Ok(postlikebypostId);
         }
-
-        [HttpGet("posts/{id}/postlikes")]
-        public async Task<IActionResult>GetPostPostLikes(int id,[FromQuery]int page,[FromQuery]int pageSize = 10)
+*/
+        [HttpGet("post/{postId}")]
+        public async Task<IActionResult>GetPostByPostLikes(int postId)
         {
-            var postpostlikes = await _postlikeService.GetPostPostLikes(id,page,pageSize);
-            if(postpostlikes == null)
+            var postpostlikes = await _postlikeService.GetPostByPostLikes(postId);
+            if(!postpostlikes.Success)
             {
-                return NotFound();
+                
+                return NotFound(postpostlikes);
             }
+
+            else 
 
             return Ok(postpostlikes);
         }
 
-        [HttpGet("AppUsers/{id}/postlikes")]
+      /*  [HttpGet("AppUsers/{id}/postlikes")]
         public async Task<IActionResult>GetUserPostLikes(int id,[FromQuery]int page = 1,[FromQuery]int pageSize = 10)
         {
             var userpostlikes = await _postlikeService.GetUserPostlikes(id,page,pageSize);
@@ -67,6 +74,19 @@ namespace BlogApi.API.Controllers
             
             return Ok(userpostlikes);
         }
+*/
+        [HttpPost("{postId}")]
+        public async Task<IActionResult>CreatePostLike(int postId)
+        {
+            var userId = _ıdentityClaimService.FindUserId();
+
+            var postResponse = await _postlikeService.CreatePostLikeAsync(postId, userId);
+
+            if(!postResponse.Success)
+                return BadRequest(postResponse);
+            else
+                return CreatedAtAction(nameof(CreatePostLike), postResponse);
+        }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult>DeletePostLike(int id)
@@ -74,12 +94,16 @@ namespace BlogApi.API.Controllers
             var userId = _ıdentityClaimService.FindUserId();
 
             var postlike = await _postlikeService.DeletePostLike(id,userId);
-            if(postlike == false)
+            if(!postlike.Success)
             {
-                return NotFound();
+                return BadRequest(postlike);
             }
 
-            return NoContent();
+            else
+            {
+                return Ok(postlike);
+            }
+            
         }
     }
 }
